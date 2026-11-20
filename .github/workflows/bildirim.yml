@@ -1,0 +1,39 @@
+name: Fiyat bildirimi
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Sadece test bildirimi gönder"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency: bildirim
+
+jobs:
+  kontrol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fiyatlari kontrol et
+        run: python3 alerts.py
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.test || 'false' }}
+
+      - name: Uyari durumunu kaydet
+        run: |
+          if ! git diff --quiet state.json; then
+            git config user.name "bildirim-bot"
+            git config user.email "bildirim-bot@users.noreply.github.com"
+            git add state.json
+            git commit -m "uyari durumu"
+            git push
+          fi
